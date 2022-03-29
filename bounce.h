@@ -238,6 +238,7 @@ void clientConsume(struct Client *client);
 
 extern bool stateNoNames;
 extern enum Cap stateCaps;
+extern char *stateAccount;
 extern bool stateAway;
 void stateLogin(
 	const char *pass, enum Cap blind, const char *plain,

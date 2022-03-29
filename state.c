@@ -38,6 +38,7 @@
 
 bool stateNoNames;
 enum Cap stateCaps;
+char *stateAccount;
 bool stateAway;
 
 typedef void Handler(struct Message *msg);
@@ -50,6 +51,12 @@ static void require(const struct Message *msg, bool origin, size_t len) {
 		if (msg->params[i]) continue;
 		errx(EX_PROTOCOL, "%s missing parameter %zu", msg->cmd, 1 + i);
 	}
+}
+
+static void set(char **field, const char *value) {
+	if (*field) free(*field);
+	*field = strdup(value);
+	if (!*field) err(EX_OSERR, "strdup");
 }
 
 // Maximum size of one AUTHENTICATE message.
@@ -127,7 +134,8 @@ static void handleAuthenticate(struct Message *msg) {
 }
 
 static void handleReplyLoggedIn(struct Message *msg) {
-	(void)msg;
+	require(msg, false, 3);
+	set(&stateAccount, msg->params[2]);
 	serverFormat("CAP END\r\n");
 }
 
@@ -164,12 +172,6 @@ bool stateReady(void) {
 		&& intro.yourHost
 		&& intro.created
 		&& intro.myInfo[0];
-}
-
-static void set(char **field, const char *value) {
-	if (*field) free(*field);
-	*field = strdup(value);
-	if (!*field) err(EX_OSERR, "strdup");
 }
 
 static void handleErrorNicknameInUse(struct Message *msg) {
