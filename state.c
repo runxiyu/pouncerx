@@ -398,6 +398,13 @@ void stateSync(struct Client *client) {
 		clientOrigin, self.nick, SOURCE_URL
 	);
 
+	if (stateAccount) {
+		clientFormat(
+			client, ":%s 900 %s %s %s :You are now logged in as %s\r\n",
+			clientOrigin, self.nick, stateEcho(), stateAccount, stateAccount
+		);
+	}
+
 	clientFormat(
 		client, ":%s 001 %s :%s\r\n",
 		intro.origin, self.nick, intro.welcome
