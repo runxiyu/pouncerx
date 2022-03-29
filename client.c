@@ -260,9 +260,10 @@ static void handleAuthenticate(struct Client *client, struct Message *msg) {
 	if (cert && !strcmp(msg->params[0], "EXTERNAL")) {
 		clientFormat(client, "AUTHENTICATE +\r\n");
 	} else if (cert && !strcmp(msg->params[0], "+")) {
+		const char *account = (stateAccount ? stateAccount : "*");
 		clientFormat(
-			client, ":%s 900 * %s * :You are now logged in as *\r\n",
-			clientOrigin, stateEcho()
+			client, ":%s 900 * %s %s :You are now logged in as %s\r\n",
+			clientOrigin, stateEcho(), account, account
 		);
 		clientFormat(
 			client, ":%s 903 * :SASL authentication successful\r\n",
