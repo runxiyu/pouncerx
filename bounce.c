@@ -424,7 +424,7 @@ int main(int argc, char *argv[]) {
 					}
 				}
 				if (revents & POLLIN) clientRecv(client);
-				if (client->error || revents & (POLLHUP | POLLERR)) {
+				if (client->remove || revents & (POLLHUP | POLLERR)) {
 					clientFree(client);
 					eventRemove(i);
 				}

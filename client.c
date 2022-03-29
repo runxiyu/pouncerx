@@ -43,36 +43,9 @@
 #include "bounce.h"
 
 enum Cap clientCaps = CapServerTime | CapConsumer | CapPassive | CapSTS;
-char *clientOrigin = "irc.invalid";
+char *clientOrigin;
 char *clientPass;
 char *clientAway;
-
-struct Client *clientAlloc(int sock, struct tls *tls) {
-	struct Client *client = calloc(1, sizeof(*client));
-	if (!client) err(EX_OSERR, "calloc");
-	fcntl(sock, F_SETFL, O_NONBLOCK);
-	client->sock = sock;
-	client->tls = tls;
-	client->time = time(NULL);
-	client->idle = client->time;
-	client->need = NeedHandshake | NeedNick | NeedUser;
-	if (clientPass) client->need |= NeedPass;
-	return client;
-}
-
-static void clientHandshake(struct Client *client) {
-	int error = tls_handshake(client->tls);
-	if (error == TLS_WANT_POLLIN || error == TLS_WANT_POLLOUT) return;
-	if (error) {
-		warnx("client tls_handshake: %s", tls_error(client->tls));
-		client->error = true;
-		return;
-	}
-	client->need &= ~NeedHandshake;
-	if ((clientCaps & CapSASL) && tls_peer_cert_provided(client->tls)) {
-		client->need &= ~NeedPass;
-	}
-}
 
 static size_t active;
 
@@ -92,6 +65,33 @@ static void activeDecr(const struct Client *client) {
 	}
 }
 
+struct Client *clientAlloc(int sock, struct tls *tls) {
+	struct Client *client = calloc(1, sizeof(*client));
+	if (!client) err(EX_OSERR, "calloc");
+	fcntl(sock, F_SETFL, O_NONBLOCK);
+	client->sock = sock;
+	client->tls = tls;
+	client->time = time(NULL);
+	client->idle = client->time;
+	client->need = NeedHandshake | NeedNick | NeedUser;
+	if (clientPass) client->need |= NeedPass;
+	return client;
+}
+
+static void clientHandshake(struct Client *client) {
+	int error = tls_handshake(client->tls);
+	if (error == TLS_WANT_POLLIN || error == TLS_WANT_POLLOUT) return;
+	if (error) {
+		warnx("client tls_handshake: %s", tls_error(client->tls));
+		client->remove = true;
+		return;
+	}
+	client->need &= ~NeedHandshake;
+	if ((clientCaps & CapSASL) && tls_peer_cert_provided(client->tls)) {
+		client->need &= ~NeedPass;
+	}
+}
+
 void clientFree(struct Client *client) {
 	activeDecr(client);
 	tls_close(client->tls);
@@ -107,7 +107,7 @@ void clientSend(struct Client *client, const char *ptr, size_t len) {
 		if (ret == TLS_WANT_POLLIN || ret == TLS_WANT_POLLOUT) continue;
 		if (ret < 0) {
 			warnx("client tls_write: %s", tls_error(client->tls));
-			client->error = true;
+			client->remove = true;
 			break;
 		}
 		ptr += ret;
@@ -134,7 +134,7 @@ static void passRequired(struct Client *client) {
 		"ERROR :Password incorrect\r\n",
 		clientOrigin
 	);
-	client->error = true;
+	client->remove = true;
 }
 
 static void maybeSync(struct Client *client) {
@@ -156,7 +156,7 @@ static void handleNick(struct Client *client, struct Message *msg) {
 
 static void handleUser(struct Client *client, struct Message *msg) {
 	if (!msg->params[0]) {
-		client->error = true;
+		client->remove = true;
 		return;
 	}
 	if (client->need & NeedPass) {
@@ -172,7 +172,7 @@ static void handleUser(struct Client *client, struct Message *msg) {
 static void handlePass(struct Client *client, struct Message *msg) {
 	if (!clientPass) return;
 	if (!msg->params[0]) {
-		client->error = true;
+		client->remove = true;
 		return;
 	}
 #ifdef __OpenBSD__
@@ -180,13 +180,13 @@ static void handlePass(struct Client *client, struct Message *msg) {
 #else
 	int error = strcmp(crypt(msg->params[0], clientPass), clientPass);
 #endif
+	explicit_bzero(msg->params[0], strlen(msg->params[0]));
 	if (error) {
 		passRequired(client);
 	} else {
 		client->need &= ~NeedPass;
 		maybeSync(client);
 	}
-	explicit_bzero(msg->params[0], strlen(msg->params[0]));
 }
 
 static void handleCap(struct Client *client, struct Message *msg) {
@@ -238,7 +238,8 @@ static void handleCap(struct Client *client, struct Message *msg) {
 		} else {
 			clientFormat(
 				client, ":%s CAP * NAK :%s\r\n",
-				clientOrigin, msg->params[1]);
+				clientOrigin, msg->params[1]
+			);
 		}
 
 	} else if (!strcmp(msg->params[0], "LIST")) {
@@ -280,7 +281,7 @@ static void handleAuthenticate(struct Client *client, struct Message *msg) {
 static void handleQuit(struct Client *client, struct Message *msg) {
 	(void)msg;
 	clientFormat(client, "ERROR :Detaching\r\n");
-	client->error = true;
+	client->remove = true;
 }
 
 static bool hasTag(const char *tags, const char *tag) {
@@ -395,7 +396,7 @@ static void clientParse(struct Client *client, char *line) {
 		Handlers[i].fn(client, &msg);
 		return;
 	}
-	client->error = true;
+	client->remove = true;
 }
 
 static bool intercept(const char *line, size_t len) {
@@ -429,7 +430,7 @@ void clientRecv(struct Client *client) {
 	if (read == TLS_WANT_POLLIN || read == TLS_WANT_POLLOUT) return;
 	if (read <= 0) {
 		if (read < 0) warnx("client tls_read: %s", tls_error(client->tls));
-		client->error = true;
+		client->remove = true;
 		return;
 	}
 	client->len += read;
@@ -657,5 +658,5 @@ void clientConsume(struct Client *client) {
 	} else {
 		clientFormat(client, "%s\r\n", line);
 	}
-	if (!client->error) ringConsume(NULL, client->consumer);
+	if (!client->remove) ringConsume(NULL, client->consumer);
 }

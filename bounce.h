@@ -212,7 +212,7 @@ enum Need {
 	BIT(NeedCapEnd),
 };
 struct Client {
-	bool error;
+	bool remove;
 	int sock;
 	struct tls *tls;
 	time_t time;
