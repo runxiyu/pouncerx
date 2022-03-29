@@ -285,6 +285,13 @@ int main(int argc, char *argv[]) {
 	if (clientPass && clientPass[0] != '$') {
 		errx(EX_USAGE, "password must be hashed with -x");
 	}
+	if (strchr(bindHost, '.')) {
+		clientOrigin = strdup(bindHost);
+		if (!clientOrigin) err(EX_OSERR, "strdup");
+	} else {
+		int n = asprintf(&clientOrigin, "%s.", bindHost);
+		if (n < 0) err(EX_OSERR, "asprintf");
+	}
 
 	if (printCert) {
 #ifdef __OpenBSD__
