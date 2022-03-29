@@ -46,8 +46,6 @@ enum Cap clientCaps = CapServerTime | CapConsumer | CapPassive | CapSTS;
 char *clientPass;
 char *clientAway;
 
-static size_t active;
-
 struct Client *clientAlloc(int sock, struct tls *tls) {
 	struct Client *client = calloc(1, sizeof(*client));
 	if (!client) err(EX_OSERR, "calloc");
@@ -75,12 +73,26 @@ static void clientHandshake(struct Client *client) {
 	}
 }
 
-void clientFree(struct Client *client) {
-	if (!client->need) {
-		if (!(client->caps & CapPassive) && !--active && !stateAway) {
-			serverEnqueue("AWAY :%s\r\n", clientAway);
-		}
+static size_t active;
+
+static void activeIncr(const struct Client *client) {
+	if (client->need) return;
+	if (client->caps & CapPassive) return;
+	if (!active++) {
+		serverEnqueue("AWAY\r\n");
 	}
+}
+
+static void activeDecr(const struct Client *client) {
+	if (client->need) return;
+	if (client->caps & CapPassive) return;
+	if (!--active && !stateAway) {
+		serverEnqueue("AWAY :%s\r\n", clientAway);
+	}
+}
+
+void clientFree(struct Client *client) {
+	activeDecr(client);
 	tls_close(client->tls);
 	tls_free(client->tls);
 	free(client);
@@ -129,9 +141,7 @@ static void maybeSync(struct Client *client) {
 	if (!client->need) {
 		stateSync(client);
 		if (client->setPos) ringSet(client->consumer, client->setPos);
-		if (!(client->caps & CapPassive) && !active++) {
-			serverEnqueue("AWAY\r\n");
-		}
+		activeIncr(client);
 	}
 }
 
@@ -213,10 +223,13 @@ static void handleCap(struct Client *client, struct Message *msg) {
 		if (client->need) client->need |= NeedCapEnd;
 		enum Cap caps = capParse(msg->params[1], values);
 		if (caps == (avail & caps)) {
-			client->caps |= caps;
 			if (caps & CapConsumer && values[CapConsumerBit]) {
 				client->setPos = strtoull(values[CapConsumerBit], NULL, 10);
 			}
+			if (caps & CapPassive && !(client->caps & CapPassive)) {
+				activeDecr(client);
+			}
+			client->caps |= caps;
 			clientFormat(client, ":%s CAP * ACK :%s\r\n", ORIGIN, msg->params[1]);
 		} else {
 			clientFormat(client, ":%s CAP * NAK :%s\r\n", ORIGIN, msg->params[1]);
