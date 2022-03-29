@@ -1,4 +1,4 @@
-/* Copyright (C) 2019  C. McEnroe <june@causal.agency>
+/* Copyright (C) 2019  June McEnroe <june@causal.agency>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -43,6 +43,7 @@
 #include "bounce.h"
 
 enum Cap clientCaps = CapServerTime | CapConsumer | CapPassive | CapSTS;
+char *clientOrigin = "irc.invalid";
 char *clientPass;
 char *clientAway;
 
@@ -131,7 +132,7 @@ static void passRequired(struct Client *client) {
 		client,
 		":%s 464 * :Password incorrect\r\n"
 		"ERROR :Password incorrect\r\n",
-		ORIGIN
+		clientOrigin
 	);
 	client->error = true;
 }
@@ -210,12 +211,12 @@ static void handleCap(struct Client *client, struct Message *msg) {
 			if (avail & CapCapNotify) client->caps |= CapCapNotify;
 			clientFormat(
 				client, ":%s CAP * LS :%s\r\n",
-				ORIGIN, capList(avail, values)
+				clientOrigin, capList(avail, values)
 			);
 		} else {
 			clientFormat(
 				client, ":%s CAP * LS :%s\r\n",
-				ORIGIN, capList(avail, NULL)
+				clientOrigin, capList(avail, NULL)
 			);
 		}
 
@@ -230,19 +231,26 @@ static void handleCap(struct Client *client, struct Message *msg) {
 				activeDecr(client);
 			}
 			client->caps |= caps;
-			clientFormat(client, ":%s CAP * ACK :%s\r\n", ORIGIN, msg->params[1]);
+			clientFormat(
+				client, ":%s CAP * ACK :%s\r\n",
+				clientOrigin, msg->params[1]
+			);
 		} else {
-			clientFormat(client, ":%s CAP * NAK :%s\r\n", ORIGIN, msg->params[1]);
+			clientFormat(
+				client, ":%s CAP * NAK :%s\r\n",
+				clientOrigin, msg->params[1]);
 		}
 
 	} else if (!strcmp(msg->params[0], "LIST")) {
 		clientFormat(
 			client, ":%s CAP * LIST :%s\r\n",
-			ORIGIN, capList(client->caps, NULL)
+			clientOrigin, capList(client->caps, NULL)
 		);
 
 	} else {
-		clientFormat(client, ":%s 410 * :Invalid CAP subcommand\r\n", ORIGIN);
+		clientFormat(
+			client, ":%s 410 * :Invalid CAP subcommand\r\n", clientOrigin
+		);
 	}
 }
 
@@ -254,16 +262,16 @@ static void handleAuthenticate(struct Client *client, struct Message *msg) {
 	} else if (cert && !strcmp(msg->params[0], "+")) {
 		clientFormat(
 			client, ":%s 900 * %s * :You are now logged in as *\r\n",
-			ORIGIN, stateEcho()
+			clientOrigin, stateEcho()
 		);
 		clientFormat(
 			client, ":%s 903 * :SASL authentication successful\r\n",
-			ORIGIN
+			clientOrigin
 		);
 	} else {
 		clientFormat(
 			client, ":%s 904 * :SASL authentication failed\r\n",
-			ORIGIN
+			clientOrigin
 		);
 	}
 }

@@ -1,4 +1,4 @@
-/* Copyright (C) 2019  C. McEnroe <june@causal.agency>
+/* Copyright (C) 2019  June McEnroe <june@causal.agency>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -393,7 +393,7 @@ void stateSync(struct Client *client) {
 		client,
 		":%s NOTICE %s :"
 		"pounce is GPLv3 fwee softwawe ^w^  code is avaiwable fwom %s\r\n",
-		ORIGIN, self.nick, SOURCE_URL
+		clientOrigin, self.nick, SOURCE_URL
 	);
 
 	clientFormat(
@@ -444,7 +444,7 @@ void stateSync(struct Client *client) {
 
 	clientFormat(
 		client, ":%s 422 %s :MOTD File is missing\r\n",
-		ORIGIN, self.nick
+		clientOrigin, self.nick
 	);
 
 	if (chans.len) assert(self.origin);
@@ -454,7 +454,7 @@ void stateSync(struct Client *client) {
 		if (chan->topic) {
 			clientFormat(
 				client, ":%s 332 %s %s :%s\r\n",
-				ORIGIN, self.nick, chan->name, chan->topic
+				clientOrigin, self.nick, chan->name, chan->topic
 			);
 		}
 		if (stateNoNames) continue;

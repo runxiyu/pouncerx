@@ -1,4 +1,4 @@
-/* Copyright (C) 2019  C. McEnroe <june@causal.agency>
+/* Copyright (C) 2019  June McEnroe <june@causal.agency>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -39,7 +39,6 @@
 #endif
 
 #define SOURCE_URL "https://git.causal.agency/pounce"
-#define ORIGIN "irc.invalid"
 
 #define BIT(x) x##Bit, x = 1 << x##Bit, x##Bit_ = x##Bit
 #define ARRAY_LEN(a) (sizeof(a) / sizeof(a[0]))
@@ -226,6 +225,7 @@ struct Client {
 	size_t len;
 };
 extern enum Cap clientCaps;
+extern char *clientOrigin;
 extern char *clientPass;
 extern char *clientAway;
 struct Client *clientAlloc(int sock, struct tls *tls);

@@ -1,4 +1,4 @@
-/* Copyright (C) 2019  C. McEnroe <june@causal.agency>
+/* Copyright (C) 2019  June McEnroe <june@causal.agency>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -413,7 +413,7 @@ int main(int argc, char *argv[]) {
 				if (revents & POLLOUT) {
 					clientConsume(client);
 					if (now - client->idle >= IdleTime) {
-						clientFormat(client, "PING :%s\r\n", ORIGIN);
+						clientFormat(client, "PING :%s\r\n", clientOrigin);
 					}
 				}
 				if (revents & POLLIN) clientRecv(client);
