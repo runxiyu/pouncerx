@@ -441,7 +441,7 @@ int main(int argc, char *argv[]) {
 			}
 		}
 
-		if (signals[SIGINT] || signals[SIGTERM]) {
+		if (clientQuit || signals[SIGINT] || signals[SIGTERM]) {
 			break;
 		}
 		if (signals[SIGALRM]) {
@@ -458,6 +458,7 @@ int main(int argc, char *argv[]) {
 		}
 	}
 
+	if (clientQuit && clientQuit[0]) quit = clientQuit;
 	serverFormat("QUIT :%s\r\n", quit);
 	serverClose();
 	for (size_t i = clientIndex; i < event.len; ++i) {

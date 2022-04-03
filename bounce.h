@@ -228,6 +228,7 @@ extern enum Cap clientCaps;
 extern char *clientOrigin;
 extern char *clientPass;
 extern char *clientAway;
+extern char *clientQuit;
 struct Client *clientAlloc(int sock, struct tls *tls);
 void clientFree(struct Client *client);
 void clientRecv(struct Client *client);

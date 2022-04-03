@@ -1,4 +1,4 @@
-.Dd October  5, 2021
+.Dd April  3, 2022
 .Dt POUNCE 1
 .Os
 .
@@ -470,6 +470,26 @@ and will cause previous connections
 to stop receiving messages.
 The nickname and real name
 sent by clients are ignored.
+.
+.Pp
+Normally a client sending
+.Ic QUIT
+will simply be disconnected from
+.Nm .
+If, however,
+the quit message
+starts with the keyword
+.Nm ,
+.Nm
+itself will quit.
+The remainder of the message
+following the keyword
+will be used as
+.Nm Ap s
+quit message,
+or the default set by
+.Cm quit
+if there isn't any.
 .
 .Pp
 Clients which request the

@@ -46,6 +46,7 @@ enum Cap clientCaps = CapServerTime | CapConsumer | CapPassive | CapSTS;
 char *clientOrigin;
 char *clientPass;
 char *clientAway;
+char *clientQuit;
 
 static size_t active;
 
@@ -279,9 +280,16 @@ static void handleAuthenticate(struct Client *client, struct Message *msg) {
 }
 
 static void handleQuit(struct Client *client, struct Message *msg) {
-	(void)msg;
-	clientFormat(client, "ERROR :Detaching\r\n");
-	client->remove = true;
+	const char *mesg = msg->params[0];
+	if (mesg && !strncmp(mesg, "pounce", 6) && (!mesg[6] || mesg[6] == ' ')) {
+		mesg += 6;
+		mesg += strspn(mesg, " ");
+		clientQuit = strdup(mesg);
+		if (!clientQuit) err(EX_OSERR, "strdup");
+	} else {
+		clientFormat(client, "ERROR :Detaching\r\n");
+		client->remove = true;
+	}
 }
 
 static bool hasTag(const char *tags, const char *tag) {
