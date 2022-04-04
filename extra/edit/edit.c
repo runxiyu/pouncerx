@@ -240,10 +240,13 @@ static const char *Boolean[] = {
 	"no-names", "no-sts", "palaver", "sasl-external", "verbose",
 };
 
+// FIXME: size needs to be validated for power of two
 static const char *Integer[] = {
 	"local-port", "port", "queue-interval", "size",
 };
 
+// FIXME: local-pass needs to be validated for hash
+// FIXME: sasl-plain needs to be validated for colon
 static const char *String[] = {
 	"away", "bind", "blind-req", "client-cert", "client-priv", "host", "join",
 	"local-ca", "local-cert", "local-host", "local-pass", "local-path",
@@ -251,37 +254,20 @@ static const char *String[] = {
 	"trust", "user",
 };
 
-static const char *Unsafe[] = {
-	"bind", "blind-req", "client-cert", "client-priv", "host", "local-ca",
-	"local-cert", "local-host", "local-path", "local-port", "local-priv",
-	"pass", "port", "sasl-external", "sasl-plain", "save", "trust", "verbose",
+// TODO: nick, user aren't safe until pounce can fall back in case
+// they're invalid
+static const char *Safe[] = {
+	"away", "join", "local-pass", "mode", "nick", "no-names", "no-sts",
+	"palaver", "quit", "real", "user",
 };
 
 static bool allowUnsafe;
-
-static const char *validate(const char *name, const char *value) {
-	if (!allowUnsafe) {
-		for (size_t i = 0; i < ARRAY_LEN(Unsafe); ++i) {
-			if (!strcmp(Unsafe[i], name)) return "is unsafe";
-		}
+static bool safe(const char *name) {
+	if (allowUnsafe) return true;
+	for (size_t i = 0; i < ARRAY_LEN(Safe); ++i) {
+		if (!strcmp(Safe[i], name)) return true;
 	}
-	for (size_t i = 0; i < ARRAY_LEN(Boolean); ++i) {
-		if (strcmp(Boolean[i], name)) continue;
-		return (value ? "does not take a value" : NULL);
-	}
-	for (size_t i = 0; i < ARRAY_LEN(Integer); ++i) {
-		if (strcmp(Integer[i], name)) continue;
-		if (!value) return "requires a value";
-		char *end;
-		strtoul(value, &end, 10);
-		if (!*value || *end) return "must be an integer";
-		return NULL;
-	}
-	for (size_t i = 0; i < ARRAY_LEN(String); ++i) {
-		if (strcmp(String[i], name)) continue;
-		return (value ? NULL : "requires a value");
-	}
-	return "is not an option";
+	return false;
 }
 
 static bool exists(const char *name) {
@@ -295,6 +281,28 @@ static bool exists(const char *name) {
 		if (!strcmp(String[i], name)) return true;
 	}
 	return false;
+}
+
+static const char *validate(const char *name, const char *value) {
+	for (size_t i = 0; i < ARRAY_LEN(Boolean); ++i) {
+		if (strcmp(Boolean[i], name)) continue;
+		if (!safe(name)) return "cannot be set";
+		return (value ? "does not take a value" : NULL);
+	}
+	for (size_t i = 0; i < ARRAY_LEN(Integer); ++i) {
+		if (strcmp(Integer[i], name)) continue;
+		if (!safe(name)) return "cannot be set";
+		if (!value) return "requires a value";
+		char *end;
+		strtoul(value, &end, 10);
+		return (!*value || *end ? "must be an integer" : NULL);
+	}
+	for (size_t i = 0; i < ARRAY_LEN(String); ++i) {
+		if (strcmp(String[i], name)) continue;
+		if (!safe(name)) return "cannot be set";
+		return (value ? NULL : "requires a value");
+	}
+	return "is not an option";
 }
 
 static void handlePrivmsg(struct Message *msg) {
@@ -357,6 +365,10 @@ static void handlePrivmsg(struct Message *msg) {
 		}
 		if (!exists(name)) {
 			format("NOTICE %s :\2%s\2 is not an option\r\n", msg->nick, name);
+			return;
+		}
+		if (!safe(name)) {
+			format("NOTICE %s :\2%s\2 cannot be unset\r\n", msg->nick, name);
 			return;
 		}
 
