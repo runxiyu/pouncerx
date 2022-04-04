@@ -315,14 +315,16 @@ static void handlePrivmsg(struct Message *msg) {
 
 	if (!strcmp(cmd, "get")) {
 		if (!name) {
-			format("NOTICE %s :", msg->nick);
-			bool some = false;
+			format("NOTICE %s :set:       ", msg->nick);
 			for (size_t i = 0; i < own.len; ++i) {
 				if (!own.opts[i].set) continue;
-				format("%s\2%s\2", (i ? " " : ""), own.opts[i].name);
-				some = true;
+				format("%s\2%s\2", (i ? ", " : ""), own.opts[i].name);
 			}
-			format("%s\r\n", (some ? "" : "(none)"));
+			format("\r\nNOTICE %s :inherited: ", msg->nick);
+			for (size_t i = 0; i < inherit.len; ++i) {
+				format("%s\2%s\2", (i ? ", " : ""), inherit.opts[i].name);
+			}
+			format("\r\n");
 			return;
 		}
 		if (!exists(name)) {
@@ -342,10 +344,23 @@ static void handlePrivmsg(struct Message *msg) {
 
 	} else if (!strcmp(cmd, "set")) {
 		if (!name) {
-			format(
-				"NOTICE %s :\2set\2 \35option\35 [\35value\35]\r\n",
-				msg->nick
-			);
+			format("NOTICE %s :options: ", msg->nick);
+			if (allowUnsafe) {
+				for (size_t i = 0; i < ARRAY_LEN(Boolean); ++i) {
+					format("%s\2%s\2", (i ? ", " : ""), Boolean[i]);
+				}
+				for (size_t i = 0; i < ARRAY_LEN(Integer); ++i) {
+					format(", \2%s\2", Integer[i]);
+				}
+				for (size_t i = 0; i < ARRAY_LEN(String); ++i) {
+					format(", \2%s\2", String[i]);
+				}
+			} else {
+				for (size_t i = 0; i < ARRAY_LEN(Safe); ++i) {
+					format("%s\2%s\2", (i ? ", " : ""), Safe[i]);
+				}
+			}
+			format("\r\n");
 			return;
 		}
 
@@ -360,7 +375,12 @@ static void handlePrivmsg(struct Message *msg) {
 
 	} else if (!strcmp(cmd, "unset")) {
 		if (!name) {
-			format("NOTICE %s :\2unset\2 \35option\35\r\n", msg->nick);
+			format("NOTICE %s :set: ", msg->nick);
+			for (size_t i = 0; i < own.len; ++i) {
+				if (!own.opts[i].set) continue;
+				format("%s\2%s\2", (i ? ", " : ""), own.opts[i].name);
+			}
+			format("\r\n");
 			return;
 		}
 		if (!exists(name)) {
