@@ -8,7 +8,7 @@
 .
 .Sh SYNOPSIS
 .Nm
-.Op Fl v
+.Op Fl av
 .Op Fl c Ar cert
 .Op Fl h Ar host
 .Op Fl k Ar priv
@@ -38,6 +38,13 @@ in the same manner as
 .Pp
 The options are as follows:
 .Bl -tag -width Ds
+.It Fl a
+Allow setting all options,
+including those that
+may render
+.Xr pounce 1
+inoperable.
+.
 .It Fl c Ar cert
 Load the TLS client certificate from
 .Ar cert .

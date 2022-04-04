@@ -236,6 +236,67 @@ static void handleError(struct Message *msg) {
 	errx(EX_UNAVAILABLE, "%s", msg->params[0]);
 }
 
+static const char *Boolean[] = {
+	"no-names", "no-sts", "palaver", "sasl-external", "verbose",
+};
+
+static const char *Integer[] = {
+	"local-port", "port", "queue-interval", "size",
+};
+
+static const char *String[] = {
+	"away", "bind", "blind-req", "client-cert", "client-priv", "host", "join",
+	"local-ca", "local-cert", "local-host", "local-pass", "local-path",
+	"local-priv", "mode", "nick", "pass", "quit", "real", "sasl-plain", "save",
+	"trust", "user",
+};
+
+static const char *Unsafe[] = {
+	"bind", "blind-req", "client-cert", "client-priv", "host", "local-ca",
+	"local-cert", "local-host", "local-path", "local-port", "local-priv",
+	"pass", "port", "sasl-external", "sasl-plain", "save", "trust", "verbose",
+};
+
+static bool allowUnsafe;
+
+static const char *validate(const char *name, const char *value) {
+	if (!allowUnsafe) {
+		for (size_t i = 0; i < ARRAY_LEN(Unsafe); ++i) {
+			if (!strcmp(Unsafe[i], name)) return "is unsafe";
+		}
+	}
+	for (size_t i = 0; i < ARRAY_LEN(Boolean); ++i) {
+		if (strcmp(Boolean[i], name)) continue;
+		return (value ? "does not take a value" : NULL);
+	}
+	for (size_t i = 0; i < ARRAY_LEN(Integer); ++i) {
+		if (strcmp(Integer[i], name)) continue;
+		if (!value) return "requires a value";
+		char *end;
+		strtoul(value, &end, 10);
+		if (!*value || *end) return "must be an integer";
+		return NULL;
+	}
+	for (size_t i = 0; i < ARRAY_LEN(String); ++i) {
+		if (strcmp(String[i], name)) continue;
+		return (value ? NULL : "requires a value");
+	}
+	return "is not an option";
+}
+
+static bool exists(const char *name) {
+	for (size_t i = 0; i < ARRAY_LEN(Boolean); ++i) {
+		if (!strcmp(Boolean[i], name)) return true;
+	}
+	for (size_t i = 0; i < ARRAY_LEN(Integer); ++i) {
+		if (!strcmp(Integer[i], name)) return true;
+	}
+	for (size_t i = 0; i < ARRAY_LEN(String); ++i) {
+		if (!strcmp(String[i], name)) return true;
+	}
+	return false;
+}
+
 static void handlePrivmsg(struct Message *msg) {
 	require(msg, true, 2);
 	if (strcmp(msg->nick, msg->params[0])) return;
@@ -253,7 +314,11 @@ static void handlePrivmsg(struct Message *msg) {
 				format("%s\2%s\2", (i ? " " : ""), own.opts[i].name);
 				some = true;
 			}
-			format("%s\r\n", (some ? "" : "none set"));
+			format("%s\r\n", (some ? "" : "(none)"));
+			return;
+		}
+		if (!exists(name)) {
+			format("NOTICE %s :\2%s\2 is not an option\r\n", msg->nick, name);
 			return;
 		}
 
@@ -264,7 +329,7 @@ static void handlePrivmsg(struct Message *msg) {
 		} else if (opt.set) {
 			format("NOTICE %s :\2%s\2 is set\r\n", msg->nick, name);
 		} else {
-			format("NOTICE %s :\2%s\2 unset\r\n", msg->nick, name);
+			format("NOTICE %s :\2%s\2 is unset\r\n", msg->nick, name);
 		}
 
 	} else if (!strcmp(cmd, "set")) {
@@ -273,6 +338,12 @@ static void handlePrivmsg(struct Message *msg) {
 				"NOTICE %s :\2set\2 \35option\35 [\35value\35]\r\n",
 				msg->nick
 			);
+			return;
+		}
+
+		const char *error = validate(name, value);
+		if (error) {
+			format("NOTICE %s :\2%s\2 %s\r\n", msg->nick, name, error);
 			return;
 		}
 		configSet(&own, name, value);
@@ -284,6 +355,11 @@ static void handlePrivmsg(struct Message *msg) {
 			format("NOTICE %s :\2unset\2 \35option\35\r\n", msg->nick);
 			return;
 		}
+		if (!exists(name)) {
+			format("NOTICE %s :\2%s\2 is not an option\r\n", msg->nick, name);
+			return;
+		}
+
 		configUnset(&own, name);
 		configWrite(&own, config);
 		struct Option opt = configGet(&inherit, name);
@@ -332,9 +408,10 @@ int main(int argc, char *argv[]) {
 	const char *trust = NULL;
 	const char *user = "pounce-edit";
 
-	for (int opt; 0 < (opt = getopt(argc, argv, "!c:h:k:p:t:u:vw:"));) {
+	for (int opt; 0 < (opt = getopt(argc, argv, "!ac:h:k:p:t:u:vw:"));) {
 		switch (opt) {
 			break; case '!': insecure = true;
+			break; case 'a': allowUnsafe = true;
 			break; case 'c': cert = optarg;
 			break; case 'h': host = optarg;
 			break; case 'k': priv = optarg;
