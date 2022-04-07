@@ -56,10 +56,6 @@ struct Config {
 	struct Option *opts;
 };
 
-static struct Config inherit;
-static struct Config own;
-static FILE *config;
-
 static struct Option configGet(const struct Config *config, const char *name) {
 	for (size_t i = 0; i < config->len; ++i) {
 		if (!strcmp(config->opts[i].name, name)) return config->opts[i];
@@ -305,6 +301,10 @@ static const char *validate(const char *name, const char *value) {
 	return "is not an option";
 }
 
+static FILE *config;
+static struct Config over;
+static struct Config under;
+
 static void handlePrivmsg(struct Message *msg) {
 	require(msg, true, 2);
 	if (strcmp(msg->nick, msg->params[0])) return;
@@ -315,14 +315,14 @@ static void handlePrivmsg(struct Message *msg) {
 
 	if (!strcmp(cmd, "get")) {
 		if (!name) {
-			format("NOTICE %s :set:       ", msg->nick);
-			for (size_t i = 0; i < own.len; ++i) {
-				if (!own.opts[i].set) continue;
-				format("%s\2%s\2", (i ? ", " : ""), own.opts[i].name);
+			format("NOTICE %s :set: ", msg->nick);
+			for (size_t i = 0; i < over.len; ++i) {
+				if (!over.opts[i].set) continue;
+				format("%s\2%s\2", (i ? ", " : ""), over.opts[i].name);
 			}
 			format("\r\nNOTICE %s :inherited: ", msg->nick);
-			for (size_t i = 0; i < inherit.len; ++i) {
-				format("%s\2%s\2", (i ? ", " : ""), inherit.opts[i].name);
+			for (size_t i = 0; i < under.len; ++i) {
+				format("%s\2%s\2", (i ? ", " : ""), under.opts[i].name);
 			}
 			format("\r\n");
 			return;
@@ -332,8 +332,8 @@ static void handlePrivmsg(struct Message *msg) {
 			return;
 		}
 
-		struct Option opt = configGet(&own, name);
-		if (!opt.set) opt = configGet(&inherit, name);
+		struct Option opt = configGet(&over, name);
+		if (!opt.set) opt = configGet(&under, name);
 		if (opt.set && opt.value) {
 			format("NOTICE %s :\2%s\2 = %s\r\n", msg->nick, name, opt.value);
 		} else if (opt.set) {
@@ -369,16 +369,16 @@ static void handlePrivmsg(struct Message *msg) {
 			format("NOTICE %s :\2%s\2 %s\r\n", msg->nick, name, error);
 			return;
 		}
-		configSet(&own, name, value);
-		configWrite(&own, config);
+		configSet(&over, name, value);
+		configWrite(&over, config);
 		format("NOTICE %s :\2%s\2 set\r\n", msg->nick, name);
 
 	} else if (!strcmp(cmd, "unset")) {
 		if (!name) {
 			format("NOTICE %s :set: ", msg->nick);
-			for (size_t i = 0; i < own.len; ++i) {
-				if (!own.opts[i].set) continue;
-				format("%s\2%s\2", (i ? ", " : ""), own.opts[i].name);
+			for (size_t i = 0; i < over.len; ++i) {
+				if (!over.opts[i].set) continue;
+				format("%s\2%s\2", (i ? ", " : ""), over.opts[i].name);
 			}
 			format("\r\n");
 			return;
@@ -392,9 +392,9 @@ static void handlePrivmsg(struct Message *msg) {
 			return;
 		}
 
-		configUnset(&own, name);
-		configWrite(&own, config);
-		struct Option opt = configGet(&inherit, name);
+		configUnset(&over, name);
+		configWrite(&over, config);
+		struct Option opt = configGet(&under, name);
 		format(
 			"NOTICE %s :\2%s\2 %s\r\n",
 			msg->nick, name, (opt.set ? "inherited" : "unset")
@@ -458,21 +458,21 @@ int main(int argc, char *argv[]) {
 	if (optind == argc) errx(EX_USAGE, "config required");
 
 	for (int i = optind; i < argc-1; ++i) {
-		configParse(&inherit, argv[i]);
+		configParse(&under, argv[i]);
 	}
-	configParse(&own, argv[argc-1]);
+	configParse(&over, argv[argc-1]);
 	config = configOpen(argv[argc-1], "r+");
 	if (!config) exit(EX_NOINPUT);
 
 	if (!host) {
-		struct Option opt = configGet(&own, "local-host");
-		if (!opt.set) opt = configGet(&inherit, "local-host");
+		struct Option opt = configGet(&over, "local-host");
+		if (!opt.set) opt = configGet(&under, "local-host");
 		if (!opt.set || !opt.value) errx(EX_USAGE, "host required");
 		host = opt.value;
 	}
 	if (!port) {
-		struct Option opt = configGet(&own, "local-port");
-		if (!opt.set) opt = configGet(&inherit, "local-port");
+		struct Option opt = configGet(&over, "local-port");
+		if (!opt.set) opt = configGet(&under, "local-port");
 		if (opt.set && opt.value) {
 			port = opt.value;
 		} else {
