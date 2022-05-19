@@ -261,8 +261,9 @@ int main(int argc, char *argv[]) {
 	if (bindPath[0]) {
 		struct stat st;
 		int error = stat(bindPath, &st);
-		if (error && errno != ENOENT) err(EX_CANTCREAT, "%s", bindPath);
-		if (S_ISDIR(st.st_mode)) {
+		if (error) {
+			if (errno != ENOENT) err(EX_CANTCREAT, "%s", bindPath);
+		} else if (S_ISDIR(st.st_mode)) {
 			size_t len = strlen(bindPath);
 			snprintf(&bindPath[len], sizeof(bindPath) - len, "/%s", bindHost);
 		}
