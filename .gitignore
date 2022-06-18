@@ -4,4 +4,7 @@ calico
 config.mk
 localhost.pem
 pounce
+pounce-edit
+pounce-notify
+pounce-palaver
 tags

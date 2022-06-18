@@ -27,6 +27,12 @@ for opt; do
 		(--prefix=*) echo "PREFIX = ${opt#*=}" ;;
 		(--bindir=*) echo "BINDIR = ${opt#*=}" ;;
 		(--mandir=*) echo "MANDIR = ${opt#*=}" ;;
+		(--enable-edit)	echo 'BINS += pounce-edit' ;;
+		(--enable-notify) echo 'BINS += pounce-notify' ;;
+		(--enable-palaver)
+			echo 'BINS += pounce-palaver'
+			config libcurl sqlite3
+			;;
 		(*) echo "warning: unsupported option ${opt}" >&2 ;;
 	esac
 done

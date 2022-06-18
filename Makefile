@@ -4,7 +4,9 @@ MANDIR ?= ${PREFIX}/man
 
 CFLAGS += -std=c11 -Wall -Wextra -Wpedantic
 LDADD.crypt = -lcrypt
+LDADD.libcurl = -lcurl
 LDADD.libtls = -ltls
+LDADD.sqlite3 = -lsqlite3
 
 BINS = calico pounce
 MANS = ${BINS:=.1}
@@ -13,6 +15,9 @@ MANS = ${BINS:=.1}
 
 LDLIBS.calico =
 LDLIBS.pounce = ${LDADD.crypt} ${LDADD.libtls}
+LDLIBS.pounce-edit = ${LDADD.libtls}
+LDLIBS.pounce-notify = ${LDADD.libtls}
+LDLIBS.pounce-palaver = ${LDADD.libcurl} ${LDADD.libtls} ${LDADD.sqlite3}
 
 OBJS.calico += dispatch.o
 
@@ -25,15 +30,25 @@ OBJS.pounce += server.o
 OBJS.pounce += state.o
 OBJS.pounce += xdg.o
 
-OBJS = ${OBJS.calico} ${OBJS.pounce}
+OBJS.pounce-edit = edit.o xdg.o
+OBJS.pounce-notify = notify.o
+OBJS.pounce-palaver = palaver.o
+
+OBJS += ${OBJS.calico}
+OBJS += ${OBJS.pounce}
+OBJS += ${OBJS.pounce-edit}
+OBJS += ${OBJS.pounce-notify}
+OBJS += ${OBJS.pounce-palaver}
 
 dev: tags all
 
 all: ${BINS}
 
 calico: ${OBJS.calico}
-
 pounce: ${OBJS.pounce}
+pounce-edit: ${OBJS.pounce-edit}
+pounce-notify: ${OBJS.pounce-notify}
+pounce-palaver: ${OBJS.pounce-palaver}
 
 ${BINS}:
 	${CC} ${LDFLAGS} ${OBJS.$@} ${LDLIBS.$@} -o $@
