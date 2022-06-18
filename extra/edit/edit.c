@@ -236,7 +236,6 @@ static const char *Boolean[] = {
 	"no-names", "no-sts", "palaver", "sasl-external", "verbose",
 };
 
-// FIXME: size needs to be validated for power of two
 static const char *Integer[] = {
 	"local-port", "port", "queue-interval", "size",
 };
@@ -290,8 +289,12 @@ static const char *validate(const char *name, const char *value) {
 		if (!safe(name)) return "cannot be set";
 		if (!value) return "requires a value";
 		char *end;
-		strtoul(value, &end, 10);
-		return (!*value || *end ? "must be an integer" : NULL);
+		size_t n = strtoull(value, &end, 10);
+		if (!*value || *end) return "must be an integer";
+		if (!strcmp(name, "size") && (!n || n & (n-1))) {
+			return "must be a power of two";
+		}
+		return NULL;
 	}
 	for (size_t i = 0; i < ARRAY_LEN(String); ++i) {
 		if (strcmp(String[i], name)) continue;
