@@ -1,4 +1,4 @@
-.Dd October  7, 2021
+.Dd July 16, 2022
 .Dt README 7
 .Os "Causal Agency"
 .
@@ -139,27 +139,31 @@ is with the process supervisor
 Additional functionality can be provided
 by special-purpose clients connected to
 .Nm .
-.Bl -bullet
-.It
-Logging can be provided by
-.Lk https://git.causal.agency/litterbox litterbox .
-.It
-Push notifications for the Palaver IRC app
-can be provided by
-.Nm pounce-palaver ,
-located in the
-.Pa extra/palaver
-directory.
-It additionally requires
+.Bl -inset
+.It Lk https://git.causal.agency/litterbox litterbox
+provides logging and search.
+.It Xr pounce-notify 1
+provides notifications
+by running an external command.
+Configure with
+.Fl \-enable-notify
+to build.
+.It Xr pounce-palaver 1
+provides push notifications
+for the Palaver IRC app.
+Configure with
+.Fl \-enable-palaver
+to build.
+Requires
 .Sy libcurl
 and
 .Sy libsqlite3 .
-.It
-Generic notifications can be provided by
-.Nm pounce-notify ,
-located in the
-.Pa extra/notify
-directory.
+.It Xr pounce-edit 1
+provides configuration editing
+over IRC.
+Configure with
+.Fl \-enable-edit
+to build.
 .El
 .
 .Sh FILES
