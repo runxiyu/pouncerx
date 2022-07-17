@@ -43,10 +43,10 @@
 #include <tls.h>
 #include <unistd.h>
 
+char *dataPath(char *buf, size_t cap, const char *path, int i);
+
 // Why must it return (const unsigned char *)?
 #define sqlite3_column_text(...) (const char *)sqlite3_column_text(__VA_ARGS__)
-
-#define DATABASE_PATH "pounce/palaver.sqlite"
 
 #define SQL(...) #__VA_ARGS__
 #define ARRAY_LEN(a) (sizeof(a) / sizeof((a)[0]))
@@ -70,48 +70,27 @@ static void dbOpen(const char *path, int flags) {
 	sqlite3_busy_timeout(db, 10000);
 }
 
-static void dbFind(char *path) {
+static void dbFind(const char *path) {
 	if (path) {
 		dbOpen(path, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE);
 		if (db) return;
 		errx(EX_NOINPUT, "%s: database not found", path);
 	}
 
-	const char *home = getenv("HOME");
-	const char *dataHome = getenv("XDG_DATA_HOME");
-	const char *dataDirs = getenv("XDG_DATA_DIRS");
-	if (!dataDirs) dataDirs = "/usr/local/share:/usr/share";
-
 	char buf[PATH_MAX];
-	if (dataHome) {
-		snprintf(buf, sizeof(buf), "%s/" DATABASE_PATH, dataHome);
-	} else {
-		if (!home) errx(EX_CONFIG, "HOME unset");
-		snprintf(buf, sizeof(buf), "%s/.local/share/" DATABASE_PATH, home);
-	}
-	dbOpen(buf, SQLITE_OPEN_READWRITE);
-	if (db) return;
-
-	char create[PATH_MAX];
-	snprintf(create, sizeof(create), "%s", buf);
-
-	while (*dataDirs) {
-		size_t len = strcspn(dataDirs, ":");
-		snprintf(buf, sizeof(buf), "%.*s/" DATABASE_PATH, (int)len, dataDirs);
+	for (int i = 0; dataPath(buf, sizeof(buf), "palaver.sqlite", i); ++i) {
 		dbOpen(buf, SQLITE_OPEN_READWRITE);
 		if (db) return;
-		dataDirs += len;
-		if (*dataDirs) dataDirs++;
 	}
 
-	char *base = strrchr(create, '/');
-	*base = '\0';
-	int error = mkdir(create, 0700);
-	if (error && errno != EEXIST) err(EX_CANTCREAT, "%s", create);
-	*base = '/';
+	int error = mkdir(dataPath(buf, sizeof(buf), "", 0), 0700);
+	if (error && errno != EEXIST) err(EX_CANTCREAT, "%s", buf);
 
-	dbOpen(create, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE);
-	if (!db) errx(EX_CANTCREAT, "%s: cannot create database", create);
+	dbOpen(
+		dataPath(buf, sizeof(buf), "palaver.sqlite", 0),
+		SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE
+	);
+	if (!db) errx(EX_CANTCREAT, "%s: cannot create database", buf);
 }
 
 static int dbParam(sqlite3_stmt *stmt, const char *param) {

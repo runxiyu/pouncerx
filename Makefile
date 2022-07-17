@@ -32,7 +32,7 @@ OBJS.pounce += xdg.o
 
 OBJS.pounce-edit = edit.o xdg.o
 OBJS.pounce-notify = notify.o
-OBJS.pounce-palaver = palaver.o
+OBJS.pounce-palaver = palaver.o xdg.o
 
 OBJS += ${OBJS.calico}
 OBJS += ${OBJS.pounce}
