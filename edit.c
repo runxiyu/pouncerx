@@ -232,74 +232,101 @@ static void handleError(struct Message *msg) {
 	errx(EX_UNAVAILABLE, "%s", msg->params[0]);
 }
 
-static const char *Boolean[] = {
-	"no-names", "no-sts", "palaver", "sasl-external", "verbose",
+typedef const char *Check(const char *value);
+
+static const char *checkBool(const char *value) {
+	return (value ? "does not take a value" : NULL);
+}
+
+static const char *checkStr(const char *value) {
+	return (value ? NULL : "requires a value");
+}
+
+static const char *checkInt(const char *value) {
+	if (!value) return "requires a value";
+	char *end;
+	strtoull(value, &end, 10);
+	if (!*value || *end) return "must be an integer";
+	return NULL;
+}
+
+static const char *checkSize(const char *value) {
+	const char *error = checkInt(value);
+	if (error) return error;
+	size_t n = strtoull(value, NULL, 10);
+	if (!n || n & (n-1)) return "must be a power of two";
+	return NULL;
+}
+
+static const char *checkHash(const char *value) {
+	// TODO
+	return NULL;
+}
+
+static const char *checkPair(const char *value) {
+	// TODO
+	return NULL;
+}
+
+static const struct {
+	const char *name;
+	bool safe;
+	Check *check;
+} Options[] = {
+	{ "away", true, checkStr },
+	{ "bind", false, checkStr },
+	{ "blind-req", false, checkStr },
+	{ "client-cert", false, checkStr },
+	{ "client-priv", false, checkStr },
+	{ "host", false, checkStr },
+	{ "join", true, checkStr },
+	{ "local-ca", false, checkStr },
+	{ "local-cert", false, checkStr },
+	{ "local-host", false, checkStr },
+	{ "local-pass", true, checkHash },
+	{ "local-path", false, checkStr },
+	{ "local-port", false, checkInt },
+	{ "local-priv", false, checkStr },
+	{ "mode", true, checkStr },
+	{ "nick", true, checkStr }, // FIXME: not safe until pounce can fallback
+	{ "no-names", true, checkBool },
+	{ "no-sts", true, checkBool },
+	{ "palaver", true, checkBool },
+	{ "pass", false, checkStr },
+	{ "port", false, checkInt },
+	{ "queue-interval", false, checkInt },
+	{ "quit", true, checkStr },
+	{ "real", true, checkStr },
+	{ "sasl-external", false, checkBool },
+	{ "sasl-plain", false, checkPair },
+	{ "save", false, checkStr },
+	{ "size", true, checkSize },
+	{ "trust", false, checkStr },
+	{ "user", true, checkStr }, // FIXME: not safe until pounce can fallback
+	{ "verbose", true, checkBool },
 };
 
-static const char *Integer[] = {
-	"local-port", "port", "queue-interval", "size",
-};
-
-// FIXME: local-pass needs to be validated for hash
-// FIXME: sasl-plain needs to be validated for colon
-static const char *String[] = {
-	"away", "bind", "blind-req", "client-cert", "client-priv", "host", "join",
-	"local-ca", "local-cert", "local-host", "local-pass", "local-path",
-	"local-priv", "mode", "nick", "pass", "quit", "real", "sasl-plain", "save",
-	"trust", "user",
-};
-
-// TODO: nick, user aren't safe until pounce can fall back in case
-// they're invalid
-static const char *Safe[] = {
-	"away", "join", "local-pass", "mode", "nick", "no-names", "no-sts",
-	"palaver", "quit", "real", "user",
-};
+static bool exists(const char *name) {
+	for (size_t i = 0; i < ARRAY_LEN(Options); ++i) {
+		if (!strcmp(Options[i].name, name)) return true;
+	}
+	return false;
+}
 
 static bool allowUnsafe;
 static bool safe(const char *name) {
 	if (allowUnsafe) return true;
-	for (size_t i = 0; i < ARRAY_LEN(Safe); ++i) {
-		if (!strcmp(Safe[i], name)) return true;
+	for (size_t i = 0; i < ARRAY_LEN(Options); ++i) {
+		if (!strcmp(Options[i].name, name)) return Options[i].safe;
 	}
 	return false;
 }
 
-static bool exists(const char *name) {
-	for (size_t i = 0; i < ARRAY_LEN(Boolean); ++i) {
-		if (!strcmp(Boolean[i], name)) return true;
-	}
-	for (size_t i = 0; i < ARRAY_LEN(Integer); ++i) {
-		if (!strcmp(Integer[i], name)) return true;
-	}
-	for (size_t i = 0; i < ARRAY_LEN(String); ++i) {
-		if (!strcmp(String[i], name)) return true;
-	}
-	return false;
-}
-
-static const char *validate(const char *name, const char *value) {
-	for (size_t i = 0; i < ARRAY_LEN(Boolean); ++i) {
-		if (strcmp(Boolean[i], name)) continue;
-		if (!safe(name)) return "cannot be set";
-		return (value ? "does not take a value" : NULL);
-	}
-	for (size_t i = 0; i < ARRAY_LEN(Integer); ++i) {
-		if (strcmp(Integer[i], name)) continue;
-		if (!safe(name)) return "cannot be set";
-		if (!value) return "requires a value";
-		char *end;
-		size_t n = strtoull(value, &end, 10);
-		if (!*value || *end) return "must be an integer";
-		if (!strcmp(name, "size") && (!n || n & (n-1))) {
-			return "must be a power of two";
-		}
-		return NULL;
-	}
-	for (size_t i = 0; i < ARRAY_LEN(String); ++i) {
-		if (strcmp(String[i], name)) continue;
-		if (!safe(name)) return "cannot be set";
-		return (value ? NULL : "requires a value");
+static const char *check(const char *name, const char *value) {
+	for (size_t i = 0; i < ARRAY_LEN(Options); ++i) {
+		if (strcmp(Options[i].name, name)) continue;
+		if (!allowUnsafe && !Options[i].safe) return "cannot be set";
+		return Options[i].check(value);
 	}
 	return "is not an option";
 }
@@ -348,26 +375,17 @@ static void handlePrivmsg(struct Message *msg) {
 	} else if (!strcmp(cmd, "set")) {
 		if (!name) {
 			format("NOTICE %s :options: ", msg->nick);
-			if (allowUnsafe) {
-				for (size_t i = 0; i < ARRAY_LEN(Boolean); ++i) {
-					format("%s\2%s\2", (i ? ", " : ""), Boolean[i]);
-				}
-				for (size_t i = 0; i < ARRAY_LEN(Integer); ++i) {
-					format(", \2%s\2", Integer[i]);
-				}
-				for (size_t i = 0; i < ARRAY_LEN(String); ++i) {
-					format(", \2%s\2", String[i]);
-				}
-			} else {
-				for (size_t i = 0; i < ARRAY_LEN(Safe); ++i) {
-					format("%s\2%s\2", (i ? ", " : ""), Safe[i]);
-				}
+			bool first = true;
+			for (size_t i = 0; i < ARRAY_LEN(Options); ++i) {
+				if (!allowUnsafe && !Options[i].safe) continue;
+				format("%s\2%s\2", (first ? "" : ", "), Options[i].name);
+				first = false;
 			}
 			format("\r\n");
 			return;
 		}
 
-		const char *error = validate(name, value);
+		const char *error = check(name, value);
 		if (error) {
 			format("NOTICE %s :\2%s\2 %s\r\n", msg->nick, name, error);
 			return;
