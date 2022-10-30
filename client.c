@@ -281,8 +281,8 @@ static void handleAuthenticate(struct Client *client, struct Message *msg) {
 
 static void handleQuit(struct Client *client, struct Message *msg) {
 	const char *mesg = msg->params[0];
-	if (mesg && !strncmp(mesg, "pounce", 6) && (!mesg[6] || mesg[6] == ' ')) {
-		mesg += 6;
+	if (mesg && !strncmp(mesg, "$pounce", 7) && (!mesg[7] || mesg[7] == ' ')) {
+		mesg += 7;
 		mesg += strspn(mesg, " ");
 		clientQuit = strdup(mesg);
 		if (!clientQuit) err(EX_OSERR, "strdup");

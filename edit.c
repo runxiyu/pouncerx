@@ -404,7 +404,7 @@ static void handlePrivmsg(struct Message *msg) {
 		);
 
 	} else if (!strcmp(cmd, "restart")) {
-		format("QUIT :pounce reloading configuration\r\n");
+		format("QUIT :$pounce reloading configuration\r\n");
 	}
 }
 
