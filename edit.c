@@ -259,13 +259,13 @@ static const char *checkSize(const char *value) {
 }
 
 static const char *checkHash(const char *value) {
-	// TODO
-	return NULL;
+	if (!value) return "requires a value";
+	return (value[0] != '$' ? "must be hashed" : NULL);
 }
 
 static const char *checkPair(const char *value) {
-	// TODO
-	return NULL;
+	if (!value) return "requires a value";
+	return (strchr(value, ':') ? NULL : "must be colon-separated");
 }
 
 static const struct {
