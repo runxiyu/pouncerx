@@ -158,7 +158,7 @@ int main(int argc, char *argv[]) {
 	}
 
 #ifdef __OpenBSD__
-	error = unveil(path, "r");
+	error = unveil(path, "rw");
 	if (error) err(EX_OSERR, "unveil");
 
 	error = pledge("stdio rpath inet unix dns sendfd", NULL);
