@@ -72,6 +72,7 @@ static inline struct Message parse(char *line) {
 	if (line && line[0] == '@') msg.tags = 1 + strsep(&line, " ");
 	if (line && line[0] == ':') msg.origin = 1 + strsep(&line, " ");
 	msg.cmd = strsep(&line, " ");
+	if (msg.cmd && !msg.cmd[0]) msg.cmd = NULL;
 	for (size_t i = 0; line && i < ParamCap; ++i) {
 		if (line[0] == ':') {
 			msg.params[i] = &line[1];
