@@ -15,7 +15,6 @@ MANS = ${BINS:=.1}
 
 LDLIBS.calico =
 LDLIBS.pounce = ${LDADD.crypt} ${LDADD.libtls}
-LDLIBS.pounce-edit = ${LDADD.libtls}
 LDLIBS.pounce-notify = ${LDADD.libtls}
 LDLIBS.pounce-palaver = ${LDADD.libcurl} ${LDADD.libtls} ${LDADD.sqlite3}
 
@@ -30,13 +29,11 @@ OBJS.pounce += server.o
 OBJS.pounce += state.o
 OBJS.pounce += xdg.o
 
-OBJS.pounce-edit = edit.o xdg.o
 OBJS.pounce-notify = notify.o
 OBJS.pounce-palaver = palaver.o xdg.o
 
 OBJS += ${OBJS.calico}
 OBJS += ${OBJS.pounce}
-OBJS += ${OBJS.pounce-edit}
 OBJS += ${OBJS.pounce-notify}
 OBJS += ${OBJS.pounce-palaver}
 
@@ -46,7 +43,6 @@ all: ${BINS}
 
 calico: ${OBJS.calico}
 pounce: ${OBJS.pounce}
-pounce-edit: ${OBJS.pounce-edit}
 pounce-notify: ${OBJS.pounce-notify}
 pounce-palaver: ${OBJS.pounce-palaver}
 
