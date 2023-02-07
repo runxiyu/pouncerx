@@ -279,6 +279,15 @@ static void handleAuthenticate(struct Client *client, struct Message *msg) {
 	}
 }
 
+static void handleJoin(struct Client *client, struct Message *msg) {
+	(void)client;
+	(void)msg;
+	// irssi intentionally sends an invalid JOIN command, at
+	// an invalid time (during client registration), on every
+	// connection. Utterly mind-boggling. Ignore it so the
+	// connection doesn't just get dropped like it deserves to be.
+}
+
 static void handleQuit(struct Client *client, struct Message *msg) {
 	const char *mesg = msg->params[0];
 	if (mesg && !strncmp(mesg, "$pounce", 7) && (!mesg[7] || mesg[7] == ' ')) {
@@ -383,6 +392,7 @@ static const struct {
 	Handler *fn;
 } Handlers[] = {
 	{ false, false, "AUTHENTICATE", handleAuthenticate },
+	{ false, false, "JOIN", handleJoin },
 	{ false, false, "NICK", handleNick },
 	{ false, false, "PASS", handlePass },
 	{ false, false, "USER", handleUser },
