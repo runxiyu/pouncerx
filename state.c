@@ -283,9 +283,9 @@ static bool originSelf(const char *origin) {
 	size_t len = strlen(self.nick);
 	if (strlen(origin) < len) return false;
 	if (strncmp(origin, self.nick, len)) return false;
-	if (origin[len] != '!') return false;
+	if (origin[len] && origin[len] != '!') return false;
 
-	if (!self.origin || strcmp(self.origin, origin)) {
+	if (origin[len] && (!self.origin || strcmp(self.origin, origin))) {
 		set(&self.origin, origin);
 	}
 	return true;
@@ -296,6 +296,7 @@ static void handleNick(struct Message *msg) {
 	if (!originSelf(msg->origin)) return;
 	set(&self.nick, msg->params[0]);
 
+	if (!self.origin) return;
 	char *rest = strchr(self.origin, '!');
 	assert(rest);
 	size_t size = strlen(self.nick) + strlen(rest) + 1;
