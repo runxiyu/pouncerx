@@ -86,6 +86,14 @@ void stateLogin(
 	serverFormat("USER %s 0 * :%s\r\n", user, real);
 }
 
+static const enum Cap DontReq = 0
+	| CapConsumer
+	| CapPalaverApp
+	| CapPassive
+	| CapSASL
+	| CapSTS
+	| CapUnsupported;
+
 static void handleCap(struct Message *msg) {
 	require(msg, false, 3);
 	enum Cap caps;
@@ -96,7 +104,7 @@ static void handleCap(struct Message *msg) {
 	}
 
 	if (!strcmp(msg->params[1], "LS") || !strcmp(msg->params[1], "NEW")) {
-		caps &= ~(CapSASL | CapSTS | CapUnsupported);
+		caps &= ~DontReq;
 		if (caps & CapEchoMessage && !(caps & CapLabeledResponse)) {
 			caps &= ~CapEchoMessage;
 		}
