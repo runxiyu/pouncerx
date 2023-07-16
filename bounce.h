@@ -94,6 +94,7 @@ static inline struct Message parse(char *line) {
 	X("chghost", CapChghost) \
 	X("echo-message", CapEchoMessage) \
 	X("extended-join", CapExtendedJoin) \
+	X("extended-monitor", CapExtendedMonitor) \
 	X("invite-notify", CapInviteNotify) \
 	X("labeled-response", CapLabeledResponse) \
 	X("message-tags", CapMessageTags) \
