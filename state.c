@@ -53,12 +53,6 @@ static void require(const struct Message *msg, bool origin, size_t len) {
 	}
 }
 
-static void set(char **field, const char *value) {
-	if (*field) free(*field);
-	*field = strdup(value);
-	if (!*field) err(EX_OSERR, "strdup");
-}
-
 // Maximum size of one AUTHENTICATE message.
 enum { AuthLen = 299 };
 static char plainBase64[BASE64_SIZE(AuthLen)];
@@ -90,6 +84,7 @@ static const enum Cap DontReq = 0
 	| CapConsumer
 	| CapPalaverApp
 	| CapPassive
+	| CapReadMarker
 	| CapSASL
 	| CapSTS
 	| CapUnsupported;
@@ -474,6 +469,9 @@ void stateSync(struct Client *client) {
 				client, ":%s 332 %s %s :%s\r\n",
 				clientOrigin, self.nick, chan->name, chan->topic
 			);
+		}
+		if (client->caps & CapReadMarker) {
+			clientGetMarker(client, chan->name);
 		}
 		if (stateNoNames) continue;
 		serverEnqueue("NAMES %s\r\n", chan->name);

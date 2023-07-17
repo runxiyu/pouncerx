@@ -25,6 +25,7 @@
  * covered work.
  */
 
+#include <err.h>
 #include <limits.h>
 #include <stdarg.h>
 #include <stdbool.h>
@@ -32,6 +33,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/time.h>
+#include <sysexits.h>
 #include <tls.h>
 
 #ifndef OPENSSL_BIN
@@ -55,6 +57,12 @@ static inline char *seprintf(char *ptr, char *end, const char *fmt, ...) {
 	if (n < 0) return NULL;
 	if (n > end - ptr) return end;
 	return ptr + n;
+}
+
+static inline void set(char **field, const char *value) {
+	if (*field) free(*field);
+	*field = strdup(value);
+	if (!*field) err(EX_OSERR, "strdup");
 }
 
 enum { MessageCap = 8191 + 512 };
@@ -92,6 +100,7 @@ static inline struct Message parse(char *line) {
 	X("causal.agency/consumer", CapConsumer) \
 	X("causal.agency/passive", CapPassive) \
 	X("chghost", CapChghost) \
+	X("draft/read-marker", CapReadMarker) \
 	X("echo-message", CapEchoMessage) \
 	X("extended-join", CapExtendedJoin) \
 	X("extended-monitor", CapExtendedMonitor) \
@@ -238,6 +247,7 @@ void clientSend(struct Client *client, const char *ptr, size_t len);
 void clientFormat(struct Client *client, const char *format, ...)
 	__attribute__((format(printf, 2, 3)));
 void clientConsume(struct Client *client);
+void clientGetMarker(struct Client *client, const char *target);
 
 extern bool stateNoNames;
 extern enum Cap stateCaps;

@@ -42,7 +42,13 @@
 
 #include "bounce.h"
 
-enum Cap clientCaps = CapServerTime | CapConsumer | CapPassive | CapSTS;
+enum Cap clientCaps = 0
+	| CapConsumer
+	| CapPassive
+	| CapReadMarker
+	| CapSTS
+	| CapServerTime;
+
 char *clientOrigin;
 char *clientPass;
 char *clientAway;
@@ -380,6 +386,91 @@ static void handlePalaver(struct Client *client, struct Message *msg) {
 	clientProduce(client, buf);
 }
 
+struct Marker {
+	char *target;
+	char *timestamp;
+};
+
+static struct {
+	struct Marker *ptr;
+	size_t cap, len;
+} markers;
+
+void clientGetMarker(struct Client *client, const char *target) {
+	for (size_t i = 0; i < markers.len; ++i) {
+		struct Marker marker = markers.ptr[i];
+		if (strcasecmp(marker.target, target)) continue;
+		clientFormat(
+			client, ":%s MARKREAD %s timestamp=%s\r\n",
+			clientOrigin, target, marker.timestamp
+		);
+		return;
+	}
+	clientFormat(client, ":%s MARKREAD %s *\r\n", clientOrigin, target);
+}
+
+static void clientSetMarker(
+	struct Client *client, const char *target, const char *timestamp
+) {
+	struct Marker *marker = NULL;
+	for (size_t i = 0; i < markers.len; ++i) {
+		marker = &markers.ptr[i];
+		if (strcasecmp(marker->target, target)) continue;
+		if (strcmp(timestamp, marker->timestamp) > 0) {
+			set(&marker->timestamp, timestamp);
+		}
+		goto reply;
+	}
+	if (markers.len == markers.cap) {
+		markers.cap = (markers.cap ? markers.cap * 2 : 8);
+		markers.ptr = realloc(markers.ptr, sizeof(*markers.ptr) * markers.cap);
+		if (!markers.ptr) err(EX_OSERR, "realloc");
+	}
+	marker = &markers.ptr[markers.len++];
+	*marker = (struct Marker) {0};
+	set(&marker->target, target);
+	set(&marker->timestamp, timestamp);
+reply:
+	clientFormat(
+		client, ":%s MARKREAD %s timestamp=%s\r\n",
+		clientOrigin, target, marker->timestamp
+	);
+}
+
+static regex_t *TimestampRegex(void) {
+	static const char *Pattern = {
+#define R2D "[0-9]{2}"
+		"^timestamp=[0-9]{4,}-" R2D "-" R2D
+		"T" R2D ":" R2D ":" R2D "[.][0-9]{3}Z$"
+#undef R2D
+	};
+	static bool compiled;
+	static regex_t regex;
+	if (!compiled) {
+		int error = regcomp(&regex, Pattern, REG_EXTENDED | REG_NOSUB);
+		assert(!error);
+	}
+	compiled = true;
+	return &regex;
+}
+
+static void handleMarkRead(struct Client *client, struct Message *msg) {
+	if (!msg->params[0]) {
+		clientFormat(
+			client, "FAIL MARKREAD NEED_MORE_PARAMS :Missing parameters\r\n"
+		);
+	} else if (!msg->params[1]) {
+		clientGetMarker(client, msg->params[0]);
+	} else if (regexec(TimestampRegex(), msg->params[1], 0, NULL, 0)) {
+		clientFormat(
+			client, "FAIL MARKREAD INVALID_PARAMS %s :Invalid parameters\r\n",
+			msg->params[1]
+		);
+	} else {
+		clientSetMarker(client, msg->params[0], &msg->params[1][10]);
+	}
+}
+
 static void handlePong(struct Client *client, struct Message *msg) {
 	(void)client;
 	(void)msg;
@@ -399,6 +490,7 @@ static const struct {
 	{ true, false, "CAP", handleCap },
 	{ true, false, "PALAVER", handlePalaver },
 	{ true, false, "PONG", handlePong },
+	{ true, true, "MARKREAD", handleMarkRead },
 	{ true, true, "NOTICE", handlePrivmsg },
 	{ true, true, "PRIVMSG", handlePrivmsg },
 	{ true, true, "QUIT", handleQuit },
