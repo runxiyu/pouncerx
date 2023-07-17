@@ -416,10 +416,15 @@ static void clientSetMarker(
 	for (size_t i = 0; i < markers.len; ++i) {
 		marker = &markers.ptr[i];
 		if (strcasecmp(marker->target, target)) continue;
-		if (strcmp(timestamp, marker->timestamp) > 0) {
-			set(&marker->timestamp, timestamp);
+		if (strcmp(timestamp, marker->timestamp) < 0) {
+			clientFormat(
+				client, ":%s MARKREAD %s timestamp=%s\r\n",
+				clientOrigin, target, marker->timestamp
+			);
+			return;
 		}
-		goto reply;
+		set(&marker->timestamp, timestamp);
+		goto notify;
 	}
 	if (markers.len == markers.cap) {
 		markers.cap = (markers.cap ? markers.cap * 2 : 8);
@@ -430,11 +435,13 @@ static void clientSetMarker(
 	*marker = (struct Marker) {0};
 	set(&marker->target, target);
 	set(&marker->timestamp, timestamp);
-reply:
-	clientFormat(
-		client, ":%s MARKREAD %s timestamp=%s\r\n",
-		clientOrigin, target, marker->timestamp
+notify:;
+	char buf[512];
+	snprintf(
+		buf, sizeof(buf), ":%s MARKREAD %s timestamp=%s",
+		clientOrigin, marker->target, marker->timestamp
 	);
+	ringProduce(buf);
 }
 
 static regex_t *TimestampRegex(void) {
@@ -677,6 +684,10 @@ static const char *filterMultiPrefix(const char *line) {
 	}
 }
 
+static const char *filterReadMarker(const char *line) {
+	return (wordcmp(line, 0, "MARKREAD") ? line : NULL);
+}
+
 static const char *filterPalaverApp(const char *line) {
 	return (wordcmp(line, 0, "PALAVER") ? line : NULL);
 }
@@ -707,6 +718,7 @@ static Filter *Filters[CapBits] = {
 	[CapMessageTagsBit] = filterMessageTags,
 	[CapMultiPrefixBit] = filterMultiPrefix,
 	[CapPalaverAppBit] = filterPalaverApp,
+	[CapReadMarkerBit] = filterReadMarker,
 	[CapSetnameBit] = filterSetname,
 	[CapUserhostInNamesBit] = filterUserhostInNames,
 };
