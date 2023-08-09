@@ -114,6 +114,7 @@ static inline struct Message parse(char *line) {
 	X("setname", CapSetname) \
 	X("sts", CapSTS) \
 	X("userhost-in-names", CapUserhostInNames) \
+	X("znc.in/self-message", CapSelfMessage) \
 	X("", CapUnsupported)
 
 enum Cap {

@@ -47,6 +47,7 @@ enum Cap clientCaps = 0
 	| CapPassive
 	| CapReadMarker
 	| CapSTS
+	| CapSelfMessage
 	| CapServerTime;
 
 char *clientOrigin;
