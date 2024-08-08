@@ -52,8 +52,9 @@ int localConfig(
 	struct tls_config *config = tls_config_new();
 	if (!config) errx(EX_SOFTWARE, "tls_config_new");
 
-	int error;
+	int error = -1;
 	char buf[PATH_MAX];
+
 	for (int i = 0; configPath(buf, sizeof(buf), cert, i); ++i) {
 		error = tls_config_set_cert_file(config, buf);
 		if (!error) break;
