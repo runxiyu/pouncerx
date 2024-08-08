@@ -11,7 +11,7 @@ LDADD.sqlite3 = -lsqlite3
 BINS = calico pounce
 MANS = ${BINS:=.1}
 
--include config.mk
+include config.mk
 
 LDLIBS.calico =
 LDLIBS.pounce = ${LDADD.crypt} ${LDADD.libtls}
